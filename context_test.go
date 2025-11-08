@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"runtime"
+	"sync"
 	"testing"
+	"time"
 )
 
 func TestContext(t *testing.T) {
@@ -55,6 +57,7 @@ func CreateCounter(ctx context.Context) chan int {
 			default:
 			destination <- counter
 			counter++
+			time.Sleep(1 * time.Second)
 			}
 		}
 	}()
@@ -77,3 +80,73 @@ func TestContextWithCancel(t *testing.T) {
 
 	fmt.Println(runtime.NumGoroutine())
 }
+
+func TestContextWithTimeout(t *testing.T) {
+	fmt.Println("Total Gourutine", runtime.NumGoroutine())
+
+	parent := context.Background()
+	ctx, cancel := context.WithTimeout(parent, 5 * time.Second)
+	defer cancel()
+
+	destination := CreateCounter(ctx)
+	fmt.Println("Total Gourutine", runtime.NumGoroutine())
+	for n := range destination{
+		fmt.Println("Count", n)
+	}
+
+	time.Sleep(2 * time.Second)
+	fmt.Println("Total Gourutine", runtime.NumGoroutine())
+}
+
+func TestContextWithDeadline(t *testing.T) {
+	fmt.Println("Total Gourutine", runtime.NumGoroutine())
+
+	parent := context.Background()
+	ctx, cancel := context.WithDeadline(parent, time.Now().Add(5 * time.Second))
+	defer cancel()
+
+	destination := CreateCounter(ctx)
+	fmt.Println("Total Gourutine", runtime.NumGoroutine())
+	for n := range destination{
+		fmt.Println("Count", n)
+	}
+
+	time.Sleep(2 * time.Second)
+	fmt.Println("Total Gourutine", runtime.NumGoroutine())
+}
+
+func TestSyncGroup(t *testing.T){
+	group := sync.WaitGroup{}
+
+	for i := 0; i < 10; i++{
+		group.Add(1)
+		go func(num int) {
+			defer group.Done()
+			fmt.Println("Gorotin ke-", num)
+		}(i)
+	}
+
+	group.Wait()
+	fmt.Println("Selesai")
+}
+
+func TestMutex(t *testing.T){
+	saldo := 0
+	var mutex sync.Mutex
+	var group sync.WaitGroup
+
+	for i :=0; i < 100; i++{
+		group.Add(1)
+		go func(num int) {
+			defer group.Done()
+			mutex.Lock()
+			saldo++
+			mutex.Unlock()
+		}(i)
+	}
+
+	group.Wait()
+	fmt.Println("Saldo Akhir", saldo)
+}
+
+// 
